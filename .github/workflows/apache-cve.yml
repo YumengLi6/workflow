@@ -1,6 +1,8 @@
 name: apache-cve
 
 on:
+  push:
+    branches: [apache-cve]
   workflow_dispatch:
 
 jobs:
