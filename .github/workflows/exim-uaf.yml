@@ -1,0 +1,45 @@
+name: exim-uaf
+
+on:
+  push:
+    branches: [exim-uaf]
+  workflow_dispatch:
+
+jobs:
+  uaf:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - name: system info
+        run: |
+          mkdir -p results
+          uname -a | tee results/system.txt
+          lscpu | tee -a results/system.txt
+          (grep -o paca /proc/cpuinfo | head -1 | tee -a results/system.txt) || true
+      - name: install vulnerable exim
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --allow-downgrades \
+            exim4-daemon-heavy=4.97-4ubuntu4 exim4-base=4.97-4ubuntu4 \
+            exim4-config=4.97-4ubuntu4 valgrind openssl python3 2>&1 | tee results/install.log
+          dpkg -s exim4-daemon-heavy | grep -E '^(Package|Version):' | tee results/version.txt
+          echo -n "paciasp count: " | tee -a results/version.txt
+          objdump -d /usr/sbin/exim4 | grep -c paciasp | tee -a results/version.txt || true
+          echo -n "canary refs: " | tee -a results/version.txt
+          readelf -sW /usr/sbin/exim4 | grep -c __stack_chk_fail | tee -a results/version.txt || true
+      - name: setup valgrind exim
+        run: bash exim/setup.sh 2>&1 | tee results/setup.log
+      - name: trigger short BDAT + TLS close + cleartext byte
+        run: python3 exim/trigger.py 2>&1 | tee results/trigger.log
+      - name: collect
+        run: |
+          sudo grep -A22 "Invalid write" /tmp/eximtest/vg-*.log | tee results/valgrind.log || true
+          sudo tail -30 /tmp/eximtest/daemon-vg.log | tee -a results/valgrind.log || true
+          sudo tail -20 /tmp/eximtest/exim-main.log | tee -a results/valgrind.log || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: exim-uaf-results
+          path: results/
