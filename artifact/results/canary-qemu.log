@@ -1,0 +1,12 @@
+canary[0]=0x00
+canary[1]=0xac  t=1449.8s
+canary[2]=0xc5  t=3160.1s
+canary[3]=0x7a  t=4834.4s
+canary[4]=0x8d  t=6630.3s
+canary[5]=0xea  t=8263.9s
+canary[6]=0xf0  t=10031.0s
+canary[7]=0x1a  t=11877.5s
+canary=00acc57a8deaf01a
+pac_hits=[24] queries=1921 elapsed=12736.5s
+
+[exited with code 0]

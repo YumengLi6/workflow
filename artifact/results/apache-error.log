@@ -1,0 +1,6 @@
+[Mon Nov 02 03:32:22.503667 2026] [mpm_prefork:notice] [pid 2930] AH00163: Apache/2.4.58 (Ubuntu) configured -- resuming normal operations
+[Mon Nov 02 03:32:22.504017 2026] [core:notice] [pid 2930] AH00094: Command line: '/usr/sbin/apache2'
+*** stack smashing detected ***: terminated
+*** stack smashing detected ***: terminated
+[Mon Nov 02 03:32:24.506184 2026] [core:notice] [pid 2930] AH00051: child pid 2932 exit signal Abort (6), possible coredump in /etc/apache2
+[Mon Nov 02 03:32:24.506261 2026] [core:notice] [pid 2930] AH00051: child pid 2933 exit signal Abort (6), possible coredump in /etc/apache2

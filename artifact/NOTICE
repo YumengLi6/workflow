@@ -1,0 +1,18 @@
+This artifact's own code is MIT-licensed (see LICENSE).
+
+Third-party components are referenced or used as tools, not
+redistributed:
+
+- QEMU (GPLv2) — user-mode emulation in the QEMU experiments.
+- GCC / binutils (GPLv3+) — builds.
+- Ubuntu 24.04 packages (various licenses) — stock binaries used for
+  measurement only; no package binaries are redistributed.
+- PACTight (USENIX Security 2022) — runtime API experiments; the
+  upstream source is not included.
+- PACStack (USENIX Security 2021) — cited as a defense boundary; the
+  upstream source is not included.
+- ProFTPD (GPLv2+), glibc (LGPLv2.1+), Apache HTTP Server (Apache-2.0)
+  — used as real-CVE targets; source/binaries are not redistributed.
+
+The raw logs in results/ were produced by the GitHub Actions runs listed
+in README.md.

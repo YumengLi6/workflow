@@ -1,0 +1,121 @@
+win=0x0000000000400930
+===== TRIAL 1 =====
+canary[0]=0x00
+canary[1]=0x2a  t=0.4s
+canary[2]=0x74  t=1.2s
+canary[3]=0x36  t=2.4s
+canary[4]=0x4b  t=3.4s
+canary[5]=0x1d  t=4.7s
+canary[6]=0x3a  t=5.5s
+canary[7]=0x20  t=6.7s
+canary=002a74364b1d3a20
+pac_hits=[32] queries=1921 elapsed=7.8s
+trial 1 rc=0
+===== TRIAL 2 =====
+canary[0]=0x00
+canary[1]=0xfe  t=0.6s
+canary[2]=0x46  t=1.5s
+canary[3]=0xb2  t=2.3s
+canary[4]=0x14  t=3.7s
+canary[5]=0x9b  t=4.5s
+canary[6]=0x95  t=5.6s
+canary[7]=0x58  t=6.8s
+canary=00fe46b2149b9558
+pac_hits=[85] queries=1921 elapsed=7.9s
+trial 2 rc=0
+===== TRIAL 3 =====
+canary[0]=0x00
+canary[1]=0x79  t=0.5s
+canary[2]=0xc8  t=1.4s
+canary[3]=0xa7  t=2.4s
+canary[4]=0xbf  t=3.4s
+canary[5]=0x37  t=4.3s
+canary[6]=0x12  t=5.4s
+canary[7]=0x38  t=6.5s
+canary=0079c8a7bf371238
+pac_hits=[41] queries=1921 elapsed=7.3s
+trial 3 rc=0
+===== TRIAL 4 =====
+canary[0]=0x00
+canary[1]=0x4d  t=0.6s
+canary[2]=0xb8  t=1.4s
+canary[3]=0x54  t=2.6s
+canary[4]=0x5d  t=3.6s
+canary[5]=0xad  t=4.6s
+canary[6]=0xad  t=5.8s
+canary[7]=0xf6  t=6.6s
+canary=004db8545dadadf6
+pac_hits=[2] queries=1921 elapsed=7.9s
+trial 4 rc=0
+===== TRIAL 5 =====
+canary[0]=0x00
+canary[1]=0xc4  t=0.5s
+canary[2]=0x6b  t=1.6s
+canary[3]=0xb4  t=2.5s
+canary[4]=0x0e  t=3.5s
+canary[5]=0x8c  t=4.6s
+canary[6]=0xee  t=5.6s
+canary[7]=0x1b  t=6.7s
+canary=00c46bb40e8cee1b
+pac_hits=[64] queries=1921 elapsed=7.6s
+trial 5 rc=0
+===== TRIAL 6 =====
+canary[0]=0x00
+canary[1]=0xca  t=0.5s
+canary[2]=0xe0  t=1.5s
+canary[3]=0x30  t=2.4s
+canary[4]=0x56  t=3.8s
+canary[5]=0x95  t=4.8s
+canary[6]=0x2a  t=5.7s
+canary[7]=0x8d  t=6.7s
+canary=00cae03056952a8d
+pac_hits=[1] queries=1921 elapsed=7.8s
+trial 6 rc=0
+===== TRIAL 7 =====
+canary[0]=0x00
+canary[1]=0x5e  t=0.5s
+canary[2]=0x53  t=1.4s
+canary[3]=0x18  t=2.4s
+canary[4]=0x56  t=3.4s
+canary[5]=0x55  t=4.5s
+canary[6]=0x92  t=5.6s
+canary[7]=0x82  t=6.6s
+canary=005e531856559282
+pac_hits=[72] queries=1921 elapsed=7.8s
+trial 7 rc=0
+===== TRIAL 8 =====
+canary[0]=0x00
+canary[1]=0x56  t=0.4s
+canary[2]=0x1f  t=1.4s
+canary[3]=0x05  t=2.5s
+canary[4]=0x1b  t=3.7s
+canary[5]=0x7b  t=4.7s
+canary[6]=0x35  t=5.7s
+canary[7]=0x2b  t=6.8s
+canary=00561f051b7b352b
+pac_hits=[39] queries=1921 elapsed=7.8s
+trial 8 rc=0
+===== TRIAL 9 =====
+canary[0]=0x00
+canary[1]=0x49  t=0.5s
+canary[2]=0x6b  t=1.8s
+canary[3]=0x02  t=2.8s
+canary[4]=0x31  t=3.8s
+canary[5]=0x13  t=4.8s
+canary[6]=0xd5  t=5.7s
+canary[7]=0x73  t=6.6s
+canary=00496b023113d573
+pac_hits=[92] queries=1921 elapsed=7.8s
+trial 9 rc=0
+===== TRIAL 10 =====
+canary[0]=0x00
+canary[1]=0x39  t=0.4s
+canary[2]=0xb5  t=1.3s
+canary[3]=0x6a  t=2.5s
+canary[4]=0x9b  t=3.5s
+canary[5]=0x22  t=4.6s
+canary[6]=0x74  t=5.6s
+canary[7]=0x51  t=6.4s
+canary=0039b56a9b227451
+pac_hits=[38] queries=1921 elapsed=7.5s
+trial 10 rc=0

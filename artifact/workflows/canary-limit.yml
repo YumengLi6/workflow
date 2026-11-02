@@ -1,0 +1,33 @@
+name: canary-limit
+
+on:
+  push:
+    branches: [canary-limit]
+  workflow_dispatch:
+
+jobs:
+  limit:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - name: system info
+        run: |
+          mkdir -p results
+          uname -a | tee results/system.txt
+          lscpu | tee -a results/system.txt
+          (grep -o paca /proc/cpuinfo | head -1 | tee -a results/system.txt) || true
+      - name: build
+        run: |
+          gcc -O0 -g -fno-omit-frame-pointer -fstack-protector-strong \
+            -no-pie -static -mbranch-protection=pac-ret+bti \
+            -o canary/server_canary_limit canary/server_canary_limit.c
+          file canary/server_canary_limit | tee results/build.txt
+          nm canary/server_canary_limit | grep -E ' (win|handle_client)$' | tee -a results/build.txt
+      - name: limit trials
+        run: bash canary/run_limit_trials.sh 2>&1 | tee results/limit.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: canary-limit-results
+          path: results/

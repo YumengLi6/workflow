@@ -1,0 +1,3 @@
+Package: apache2-bin
+Version: 2.4.58-1ubuntu8
+bbc714ad77da01731b2962328d569657afb6e01ce71d16e7e7c9e40ce71b48e2  /usr/lib/apache2/modules/mod_vhost_alias.so

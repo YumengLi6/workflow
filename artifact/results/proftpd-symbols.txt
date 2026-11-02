@@ -1,0 +1,2 @@
+000000000040a0cc T crypt
+000000000040a078 T strata_win

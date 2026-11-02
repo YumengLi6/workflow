@@ -1,0 +1,25 @@
+name: artifact-repro
+
+on:
+  push:
+    branches: [artifact]
+  workflow_dispatch:
+
+jobs:
+  repro:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - name: system info
+        run: |
+          mkdir -p artifact/results
+          uname -a | tee artifact/results/repro-system.txt
+          (grep -o paca /proc/cpuinfo | head -1 | tee -a artifact/results/repro-system.txt) || true
+      - name: reproduce
+        run: bash artifact/reproduce-canary.sh 2>&1 | tee artifact/results/repro.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: artifact-repro-results
+          path: artifact/results/
