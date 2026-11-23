@@ -1,0 +1,106 @@
+name: arm-env
+
+on:
+  workflow_dispatch:
+
+jobs:
+  env:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 45
+    steps:
+      - name: System info and PAC features
+        run: |
+          set -u
+          mkdir -p results
+          {
+            echo "== date"; date -u
+            echo "== uname"; uname -a
+            echo "== os-release"; cat /etc/os-release
+            echo "== lscpu"; lscpu
+            echo "== paca/pacg"; grep -oE 'paca|pacg' /proc/cpuinfo | sort -u || echo NONE
+            echo "== hwcap"; LD_SHOW_AUXV=1 /bin/true 2>/dev/null | grep -i hwcap || true
+            echo "== kernel config"
+            if [ -r /proc/config.gz ]; then
+              zgrep -E 'CONFIG_ARM64_(PTR_AUTH|VA_BITS)' /proc/config.gz || true
+            elif ls /boot/config-* >/dev/null 2>&1; then
+              grep -E 'CONFIG_ARM64_(PTR_AUTH|VA_BITS)' "/boot/config-$(uname -r)" 2>/dev/null || true
+            else
+              echo "no kernel config"
+            fi
+            echo "== dmesg VA"; sudo dmesg 2>/dev/null | grep -i 'Virtual address' | tail -3 || true
+            echo "== maps top"; tail -3 /proc/self/maps
+            echo "== long bit"; getconf LONG_BIT
+            echo "== aslr"; cat /proc/sys/kernel/randomize_va_space
+            echo "== nproc"; nproc
+            echo "== mem"; free -h
+          } 2>&1 | tee results/env.txt
+      - name: Toolchain PAC test
+        run: |
+          set -u
+          mkdir -p results
+          cat > /tmp/pac_test.c <<'EOF'
+          #include <stdio.h>
+          __attribute__((noinline)) int f(int x) { return x + 1; }
+          int main(void) { printf("%d\n", f(41)); return 0; }
+          EOF
+          gcc --version | head -1 | tee results/toolchain.txt
+          gcc -O0 -mbranch-protection=pac-ret+bti /tmp/pac_test.c -o /tmp/pac_test
+          objdump -d /tmp/pac_test | grep -E 'paciasp|autiasp|retaa|bti' | tee -a results/toolchain.txt
+          /tmp/pac_test | tee -a results/toolchain.txt
+      - name: Download and extract stock packages
+        run: |
+          set -u
+          mkdir -p results/pkgs results/debs
+          sudo apt-get update -qq
+          PKGS="apache2-bin nginx proftpd-core exim4-daemon-heavy openssh-server postfix vsftpd lighttpd dovecot-core samba cups-daemon pure-ftpd pure-ftpd-common tftpd-hpa atftpd postgresql-16 redis-server libc6"
+          cd results/debs
+          for p in $PKGS; do
+            echo "== $p"
+            apt-get download "$p" >/dev/null 2>&1 || echo "DOWNLOAD_FAILED $p"
+          done
+          cd ../..
+          for deb in results/debs/*.deb; do
+            [ -e "$deb" ] || continue
+            name=$(dpkg-deb -f "$deb" Package)
+            ver=$(dpkg-deb -f "$deb" Version)
+            arch=$(dpkg-deb -f "$deb" Architecture)
+            printf '%s\t%s\t%s\n' "$name" "$ver" "$arch" >> results/packages.tsv
+            dpkg-deb -x "$deb" "results/pkgs/$name"
+          done
+          sort -u results/packages.tsv -o results/packages.tsv
+          cat results/packages.tsv
+      - name: Scan stock binaries
+        run: |
+          set -u
+          printf 'path\tpackage\tpac\tbti\tcanary\tretaa\trecv_calls\n' > results/scan.tsv
+          for root in results/pkgs/*; do
+            pkg=$(basename "$root")
+            find "$root" -type f \( \
+                -path '*/usr/sbin/*' -o \
+                -path '*/usr/lib/postfix/sbin/*' -o \
+                -path '*/usr/lib/postgresql/*/bin/*' -o \
+                -path '*/usr/lib/dovecot/*' -o \
+                -path '*/usr/lib/apache2/modules/*' -o \
+                -path '*/usr/bin/redis-server' \) 2>/dev/null | while read -r b; do
+              file "$b" 2>/dev/null | grep -q 'ELF 64-bit' || continue
+              file "$b" 2>/dev/null | grep -q 'ARM aarch64' || continue
+              [ -x "$b" ] || continue
+              objdump -d "$b" > /tmp/dis.txt 2>/dev/null || continue
+              pac=$(grep -cE 'paciasp|autiasp' /tmp/dis.txt || true)
+              [ "${pac:-0}" -eq 0 ] && continue
+              bti=$(grep -cE '\bbti\b' /tmp/dis.txt || true)
+              retaa=$(grep -cE '\bretaa\b' /tmp/dis.txt || true)
+              can=$(readelf -sW "$b" 2>/dev/null | grep -c '__stack_chk_fail' || true)
+              recv=$(grep -cE 'bl[[:space:]]+.*<(recv|recvfrom|read|memcpy)@plt>' /tmp/dis.txt || true)
+              printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "${b#$root/}" "$pkg" "$pac" "$bti" "$can" "$retaa" "$recv" >> results/scan.tsv
+            done
+          done
+          sort -t "$(printf '\t')" -k3,3nr results/scan.tsv -o results/scan.tsv
+          head -60 results/scan.tsv
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: arm-env-results
+          path: results/
+          retention-days: 14
