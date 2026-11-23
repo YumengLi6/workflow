@@ -1,6 +1,8 @@
 name: arm-env
 
 on:
+  push:
+    branches: [stock-cve-arm]
   workflow_dispatch:
 
 jobs:
