@@ -262,3 +262,58 @@ jobs:
         with:
           name: libcrypto-oracle-results
           path: results/
+
+  cms-scan:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: system info
+        run: |
+          mkdir -p results
+          uname -a | tee results/system.txt
+          lscpu | tee -a results/system.txt
+      - name: download candidate packages
+        run: |
+          set -u
+          mkdir -p results/pkgs results/debs
+          sudo apt-get update -qq
+          PKGS="openssl strongswan libreswan openvpn krb5-kdc krb5-user slapd freeipa-server amavisd-new mailmunge mimedefang opendkim opendmarc rspamd clamav-daemon spamassassin exim4-daemon-heavy postfix dovecot-core cyrus-imapd opensmtpd sendmail-bin mailutils cups-daemon cups-filters poppler-utils ghostscript apache2-bin nginx lighttpd squid haproxy varnish certbot step-ca cfssl ejabberd prosody tomcat9 jetty9 php8.3-cli python3-openssl ruby-openssl"
+          cd results/debs
+          for p in $PKGS; do
+            apt-get download "$p" >/dev/null 2>&1 || echo "FAIL $p" | tee -a ../download-fail.txt
+          done
+          cd ../..
+          for deb in results/debs/*.deb; do
+            [ -e "$deb" ] || continue
+            name=$(dpkg-deb -f "$deb" Package)
+            dpkg-deb -x "$deb" "results/pkgs/$name"
+          done
+          ls results/debs | wc -l | tee results/pkg-count.txt
+      - name: scan CMS/PKCS7 consumers
+        run: |
+          set -u
+          printf 'package\tbinary\tcms\tpkcs7\tsymbols\n' > results/cms-consumers.tsv
+          for root in results/pkgs/*; do
+            pkg=$(basename "$root")
+            find "$root" -type f \( \
+                -path '*/usr/sbin/*' -o -path '*/usr/bin/*' -o \
+                -path '*/usr/lib/*/sbin/*' -o -path '*/usr/lib/postfix/*' -o \
+                -path '*/usr/lib/dovecot/*' -o -path '*/usr/lib/cyrus/*' -o \
+                -path '*/usr/lib/*/*.so*' \) 2>/dev/null | while read -r b; do
+              file "$b" 2>/dev/null | grep -q 'ELF 64-bit' || continue
+              [ -x "$b" ] || continue
+              syms=$(readelf -sW "$b" 2>/dev/null | grep -oE 'CMS_[A-Za-z0-9_]+|PKCS7_[A-Za-z0-9_]+' | sort -u | tr '\n' ',')
+              [ -n "$syms" ] || continue
+              cms=$(printf '%s' "$syms" | grep -o 'CMS_' | wc -l)
+              pkcs7=$(printf '%s' "$syms" | grep -o 'PKCS7_' | wc -l)
+              printf '%s\t%s\t%s\t%s\t%s\n' "$pkg" "${b#$root/}" "$cms" "$pkcs7" "$syms" >> results/cms-consumers.tsv
+            done
+          done
+          sort -t "$(printf '\t')" -k3,3nr results/cms-consumers.tsv -o results/cms-consumers.tsv
+          head -120 results/cms-consumers.tsv
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: cms-consumers-results
+          path: results/
