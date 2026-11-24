@@ -312,6 +312,9 @@ jobs:
           done
           sort -t "$(printf '\t')" -k3,3nr results/cms-consumers.tsv -o results/cms-consumers.tsv
           head -120 results/cms-consumers.tsv
+      - name: fix permissions for artifact
+        if: always()
+        run: chmod -R u+rwX results/pkgs || true
       - uses: actions/upload-artifact@v4
         if: always()
         with:
